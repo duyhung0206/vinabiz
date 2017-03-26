@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Get info website (vinabiz)</title>
+    <link rel="stylesheet" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" href="./css/bootstrap-theme.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+    <style>
+        .percent{
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>Vinabiz</h1>
+        </div>
+        <div class="row">
+            <textarea id="message" class="form-control" rows="12"></textarea>
+            <table class="table table-condensed">
+                <caption>Lấy dữ liệu các công ty trong trang https://vinabiz.org/</caption>
+                <thead>
+                <tr>
+                    <th width="20%">Thông tin</th>
+                    <th width="15%">Số lượng</th>
+                    <th width="15%">Thời gian ước tính</th>
+                    <th width="40%">Tiến trình</th>
+                    <th width="10%">Trạng thái</th>
+                </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Lấy tổng số trang</td>
+                        <td><span id="pagesize"></span></td>
+                        <td><span id="time-pagesize"></span></td>
+                        <td>
+                            <div class="progress text-center">
+                                <span id="percent-pagesize" class="percent">0%</span>
+                                <div id="progress-pagesize" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <span id="status-pagesize">Pending</span>
+                        </td>
+                    </tr>
+                <tr>
+                    <td>Lấy url dẫn tới trang thông tin các công ty</td>
+                    <td><span id="numberurl"></span></td>
+                    <td><span id="time-numberurl"></span></td>
+                    <td>
+                        <div class="progress text-center">
+                            <span id="percent-numberurl" class="percent">0%</span>
+                            <div id="progress-numberurl" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </td>
+                    <td><span id="status-numberurl">Pending</span></td>
+                </tr>
+                    <tr>
+                        <td>Lấy dữ liệu các công ty</td>
+                        <td><span id="numbercompany"></span></td>
+                        <td><span id="time-numbercompany"></span></td>
+                        <td>
+                            <div class="progress text-center">
+                                <span id="percent-numbercompany" class="percent">0%</span>
+                                <div id="progress-numbercompany" class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </td>
+                        <td><span id="status-numbercompany">Pending</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function(){
+            var pageSize = 0;
+            var currentpage = 1;
+            var currentcompany = 1;
+            var numberUrl = 0;
+
+            function createDataBase() {
+                $.ajax({
+                    type: "POST",
+                    url: "createDatabase.php"
+                }).done(function(msg) {
+                    $('#message').prepend(msg);
+                    getMaxSize();
+                });
+            }
+
+            function getCurrentPage() {
+                $.ajax({
+                    type: "POST",
+                    url: "getCurrentPage.php"
+                }).done(function(msg) {
+                    currentpage = parseInt(msg);
+                    $('#message').prepend('\n');
+                    $('#message').prepend('Last get page: '+msg);
+                    if(currentpage == 0)
+                        currentpage = parseInt(msg)+1;
+
+                    var pr = (currentpage-1)/pageSize *100;
+                    $('#progress-numberurl').css('width',pr+'%');
+                    $('#percent-numberurl').text(parseFloat(pr).toFixed(2)+'%');
+                    if(pr == 100){
+                        $('#percent-numberurl').text(pr+'%');
+                    }
+                    getUrlConpany();
+
+                });
+            }
+
+            function getMaxSize() {
+                $('#status-pagesize').text('Processing');
+                $.ajax({
+                    type: "POST",
+                    url: "getMaxSize.php",
+                    data: {}
+                }).done(function(psize) {
+                    pageSize = psize;
+                    $('#pagesize').text(parseInt(psize));
+                    $('#progress-pagesize').css('width','100%');
+                    $('#percent-pagesize').text('100%');
+                    $('#status-pagesize').text('Completed');
+                    getCurrentPage();
+                });
+            }
+
+            function getUrlConpany() {
+                $('#status-numberurl').text('Processing');
+                callAjaxGetUrl();
+            }
+
+            function callAjaxGetUrl() {
+                console.log('getUrlConpany '+currentpage);
+                $.ajax({
+                    type: "POST",
+                    url: "getUrlConpany.php",
+                    data: ({ currentpage : currentpage})
+                }).done(function(msg) {
+                    $('#message').prepend(msg);
+                    var pr = currentpage/pageSize *100;
+
+                    $('#progress-numberurl').css('width',pr+'%');
+                    $('#percent-numberurl').text(parseFloat(pr).toFixed(2)+'%');
+                    if(pr == 100){
+                        $('#percent-numberurl').text(pr+'%');
+                    }
+                    countUrlConpany(currentpage);
+
+                    currentpage++;
+                    if(currentpage>pageSize){
+                        $('#status-numberurl').text('Completed');
+                        $('#status-numbercompany').text('Processing');
+                        getDataCompany();
+                        return;
+                    }
+                    callAjaxGetUrl();
+
+                });
+            }
+
+            function countUrlConpany(currentpage) {
+                console.log('countUrlConpany');
+                $.ajax({
+                    type: "POST",
+                    url: "countUrlConpany.php"
+                }).done(function(msg) {
+                    $('#numberurl').text(parseInt(msg)+'('+ currentpage +'/'+ pageSize +')');
+                    numberUrl = parseInt(msg);
+                });
+            }
+
+            var countDown = 0;
+            var time = 0;
+            var firstPrint = 0;
+            var timegetDataCompany = 0;
+            function getDataCompany() {
+                countDown++;
+                var start_getDataCompany = performance.now();
+                $.ajax({
+                    type: "POST",
+                    url: "getDataCompany.php"
+                }).done(function(data) {
+                    data = JSON.parse(data)
+                    if(data.success == 1){
+                        var pr = parseInt(data.numbercompany)/numberUrl * 100;
+                        $('#progress-numbercompany').css('width',pr+'%');
+                        $('#percent-numbercompany').text(parseFloat(pr).toFixed(2)+'%');
+                        if(pr == 100){
+                            $('#percent-numbercompany').text(pr+'%');
+                        }
+                        $('#message').prepend('\n');
+                        $('#message').prepend(data.message);
+                        $('#numbercompany').text(data.numbercompany+'/'+numberUrl);
+                        var end_getDataCompany = performance.now();
+                        time += (end_getDataCompany - start_getDataCompany);
+                        if(firstPrint == 0){
+                            timegetDataCompany = (time)*(numberUrl-parseInt(data.numbercompany));
+                            startTimer($('#time-numbercompany'));
+                            countDown = 0;
+                            console.log(time);
+                            firstPrint = 1;
+                            time = 0;
+                        }
+                        if(countDown == 20){
+                            timegetDataCompany = (time/20)*(numberUrl-parseInt(data.numbercompany));
+                            updateTimer = 1;
+                            countDown = 0;
+                            console.log(time);
+                            time = 0;
+                        }
+                        getDataCompany();
+                    }
+                    if(data.success == 3){
+                        $('#message').prepend('\n');
+                        $('#message').prepend(data.message);
+                        $('#status-numbercompany').text('Completed');
+                    }
+                    if(data.success == 0){
+                        $('#message').prepend('\n');
+                        $('#message').prepend(data.message);
+                        return;
+                    }
+
+                });
+            }
+
+            createDataBase();
+
+            var updateTimer = 1;
+            function startTimer(display) {
+                var minutes, seconds, hours;
+                var timer = timegetDataCompany/1000;
+                setInterval(function () {
+                    if(updateTimer == 1){
+                        timer = timegetDataCompany/1000;
+                        updateTimer = 0;
+                    }
+                    hours = parseInt(timer / 3600, 10);
+                    minutes = parseInt((timer / 60)%60, 10);
+                    seconds = parseInt(timer % 60, 10);
+
+                    hours = hours < 10 ? "0" + hours : hours;
+                    minutes = minutes < 10 ? "0" + minutes : minutes;
+                    seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                    display.text(hours + ":" +minutes + ":" + seconds);
+
+                    if (--timer < 0) {
+                        timer = 0;
+                    }
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+
+</html>
